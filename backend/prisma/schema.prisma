@@ -1,0 +1,251 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  Id        String      @id @default(uuid())
+  name      String
+  email     String
+  phone     String
+  password  String
+  role      Role
+  cards     Cards[]
+  cardItems CardItems[]
+  store     Stores?
+  locations Locations[]
+}
+
+model Cards {
+  Id        String      @id @default(uuid())
+  prices    Float
+  discount  Float
+  user      User?       @relation(fields: [userId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  userId    String?     @unique
+  invoices  Invoices?   @relation("CardsInvoices")
+  cardItems CardItems[] @relation("CardItemsInCards")
+  stores    Stores?     @relation("StoreCards", fields: [storesId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  storesId  String?
+}
+
+model CardItems {
+  Id          String  @id @default(uuid())
+  name        String
+  attachments String
+  quantity    Int
+  price       Float
+  cards       Cards   @relation("CardItemsInCards", fields: [cardsId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  cardsId     String
+  user        User?   @relation(fields: [userId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  userId      String?
+  store       Stores? @relation(fields: [storeId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  storeId     String?
+}
+
+model Invoices {
+  Id                    String               @id @default(uuid())
+  prices                Float
+  serviceCharge         Float
+  status                String
+  receiverLongitude     Decimal
+  receiverLatitude      Decimal
+  receiverDistrict      String
+  receiverPhone         String
+  receiverAddress       String
+  receiverName          String
+  invoiceNumber         String
+  cards                 Cards                @relation("CardsInvoices", fields: [cardsId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  cardsId               String               @unique
+  confirmationPayment   ConfirmationPayment? @relation(fields: [confirmationPaymentId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  confirmationPaymentId String?
+  histories             InvoicesHistories?   @relation("InvoiceHistories")
+  payments              Payments?            @relation("InvoicePayment", fields: [paymentId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  paymentId             String?              @unique
+  courier               Couriers?            @relation("InvoiceCourier", fields: [courierId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  courierId             String?              @unique
+}
+
+model InvoicesHistories {
+  Id        String   @id @default(uuid())
+  status    String
+  createdAt DateTime @default(now())
+  invoice   Invoices @relation("InvoiceHistories", fields: [invoiceId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  invoiceId String   @unique
+}
+
+model Payments {
+  Id                    String    @id @default(uuid())
+  bank                  String
+  amount                Float
+  status                String
+  midtransTransactionId String
+  invoice               Invoices? @relation("InvoicePayment")
+}
+
+model ConfirmationPayment {
+  Id       String     @id @default(uuid())
+  amount   Int
+  bank     String
+  invoices Invoices[]
+}
+
+model Stores {
+  Id               String                @id @default(uuid())
+  name             String
+  slogan           String?
+  description      String?
+  domain           String?
+  logoAttachment   String?
+  bannerAttachment String?
+  user             User                  @relation(fields: [userId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  userId           String                @unique
+  cards            Cards[]               @relation("StoreCards")
+  cardItems        CardItems[]
+  products         Products[]            @relation("StoreProducts")
+  decorations      StoresOnDecorations[]
+  operationHours   OperationHours[]
+  messageTemplates MessageTemplates[]
+  locations        Locations[]
+  bankAccounts     VirtualBankAccounts[]
+}
+
+model VirtualBankAccounts {
+  Id          String  @id @default(uuid())
+  bank        String
+  accountName String
+  stores      Stores? @relation(fields: [storesId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  storesId    String?
+}
+
+model StoresOnDecorations {
+  Id           String     @id @default(uuid())
+  decoration   Decoration @relation(fields: [decorationId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  decorationId String
+  store        Stores     @relation(fields: [storeId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  storeId      String
+}
+
+model Decoration {
+  Id                  String                @id @default(uuid())
+  type                String
+  storesOnDecorations StoresOnDecorations[]
+}
+
+model OperationHours {
+  Id      String   @id @default(uuid())
+  day     String
+  openAt  DateTime
+  closeAt DateTime
+  isOff   Boolean
+  store   Stores   @relation(fields: [storeId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  storeId String
+}
+
+model MessageTemplates {
+  Id       String  @id @default(uuid())
+  name     String
+  content  String
+  stores   Stores? @relation(fields: [storesId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  storesId String?
+}
+
+model Products {
+  Id           String     @id @default(uuid())
+  name         String
+  sku          String
+  price        Float
+  urlName      String
+  description  String
+  attachments  String[]
+  stock        Int
+  weight       Float
+  minimumOrder Int
+  isActive     Boolean
+  length       Float
+  width        Float
+  height       Float
+  store        Stores?    @relation("StoreProducts", fields: [storeId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  storeId      String?
+  categories   Categories @relation("ProductCategories", fields: [categoriesId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  categoriesId String
+  variants     Variants[]
+}
+
+model Categories {
+  Id            String       @id @default(uuid())
+  name          String
+  parentId      String?
+  parent        Categories?  @relation("SubCategories", fields: [parentId], references: [Id])
+  subcategories Categories[] @relation("SubCategories")
+  products      Products[]   @relation("ProductCategories")
+}
+
+model Variants {
+  Id             String           @id @default(uuid())
+  name           String
+  isActive       Boolean
+  product        Products         @relation(fields: [productId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  productId      String
+  variantOptions VariantOptions[]
+}
+
+model VariantOptions {
+  Id           String                @id @default(uuid())
+  name         String
+  variant      Variants              @relation(fields: [variantId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  variantId    String
+  optionValues VariantOptionsValue[]
+}
+
+model VariantOptionsValue {
+  Id       String         @id @default(uuid())
+  sku      String
+  weight   Float
+  stock    Int
+  price    Float
+  isActive Boolean
+  option   VariantOptions @relation(fields: [optionId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  optionId String
+}
+
+model Couriers {
+  Id                 String     @id @default(uuid())
+  price              Float
+  courierCode        String
+  courierServiceName String
+  courierServiceCode String
+  orderId            String
+  invoices           Invoices[] @relation("InvoiceCourier")
+  courierId          String?
+}
+
+model Locations {
+  Id             String  @id @default(uuid())
+  name           String
+  address        String
+  postalCode     String
+  city           String
+  district       String
+  latitude       String
+  longitude      String
+  isMainLocation Boolean
+  stores         Stores? @relation(fields: [storesId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  storesId       String?
+  user           User?   @relation(fields: [userId], references: [Id], onDelete: Cascade, onUpdate: Cascade)
+  userId         String?
+}
+
+enum Role {
+  Buyer
+  Seller
+}
